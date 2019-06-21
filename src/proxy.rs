@@ -2,6 +2,7 @@ use std::fmt;
 use std::sync::Arc;
 #[cfg(feature = "socks")]
 use std::net::{SocketAddr, ToSocketAddrs};
+use std::path::PathBuf;
 
 use http::{header::HeaderValue, Uri};
 use hyper::client::connect::Destination;
@@ -51,6 +52,10 @@ pub enum ProxyScheme {
         addr: SocketAddr,
         auth: Option<(String, String)>,
         remote_dns: bool,
+    },
+    #[cfg(unix)]
+    Unix {
+        path: PathBuf,
     },
 }
 
@@ -211,7 +216,7 @@ impl Proxy {
             Intercept::Custom(ref custom) => {
                 custom.call(uri).and_then(|scheme| match scheme {
                     ProxyScheme::Http { auth, .. } => auth,
-                    #[cfg(feature = "socks")]
+                    #[cfg(any(unix, feature = "socks"))]
                     _ => None,
                 })
             }
@@ -311,6 +316,8 @@ impl ProxyScheme {
             ProxyScheme::Socks5 { ref mut auth, .. } => {
                 *auth = Some((username.into(), password.into()));
             }
+            #[cfg(unix)]
+            ProxyScheme::Unix { .. } => {}
         }
     }
 
@@ -408,7 +415,9 @@ impl Custom {
                     }
                 },
                 #[cfg(feature = "socks")]
-                socks => socks,
+                socks @ ProxyScheme::Socks5 { .. } => socks,
+                #[cfg(unix)]
+                unix @ ProxyScheme::Unix { .. } => unix,
             })
     }
 }

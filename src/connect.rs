@@ -194,6 +194,11 @@ impl Connector {
         // else no TLS
         socks::connect(proxy, dst, dns)
     }
+
+    #[cfg(unix)]
+    fn connect_unix(&self, _dst: Destination, _proxy: ProxyScheme) -> Connecting {
+        unimplemented!();
+    }
 }
 
 #[cfg(feature = "trust-dns")]
@@ -296,6 +301,8 @@ impl Connect for Connector {
                     ProxyScheme::Http { uri, auth, .. } => (uri, auth),
                     #[cfg(feature = "socks")]
                     ProxyScheme::Socks5 { .. } => return self.connect_socks(dst, proxy_scheme),
+                    #[cfg(unix)]
+                    ProxyScheme::Unix { .. } => return self.connect_unix(dst, proxy_scheme),
                 };
 
                 let mut ndst = dst.clone();
